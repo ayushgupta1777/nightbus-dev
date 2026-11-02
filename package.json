@@ -8,9 +8,9 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "qa:next": "node ../server/scripts/qaResolver.js --next",
-    "qa:list": "node ../server/scripts/qaResolver.js --list",
-    "qa:resolve-erase": "node ../server/scripts/qaResolver.js --resolve-and-erase"
+    "qa:next": "node scripts/qaResolver.cjs --next",
+    "qa:list": "node scripts/qaResolver.cjs --list",
+    "qa:resolve-erase": "node scripts/qaResolver.cjs --resolve-and-erase"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.13.0",
