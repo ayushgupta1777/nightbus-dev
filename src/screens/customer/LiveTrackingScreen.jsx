@@ -196,10 +196,10 @@ const LiveTrackingScreen = () => {
       attributionControl: false,
     });
 
-    // Clean OpenStreetMap CartoDB Positron / OSM Street Tiles
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    // Official OpenStreetMap Tiles (100% Free, Zero Watermark, No API Key Required)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      subdomains: 'abcd',
+      attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
 
     // Route Polyline (Glowing Night Bus Indigo Track)
