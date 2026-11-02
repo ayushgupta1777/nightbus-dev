@@ -1,0 +1,447 @@
+/* ==================== src/index.css (Night Bus Mobile App Exact Design System) ==================== */
+
+:root {
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'SF Mono', SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
+
+  /* React Native App Palette */
+  --bg-app: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-muted: #f1f5f9;
+  --bg-input: #f8fafc;
+
+  --border-light: #e2e8f0;
+  --border-subtle: #f1f5f9;
+  --border-input: #cbd5e1;
+
+  /* Primary Brand (Customer / App Default) */
+  --primary: #6366f1;
+  --primary-dark: #4f46e5;
+  --primary-light: #818cf8;
+  --primary-subtle: #eef2ff;
+
+  /* Role Theming */
+  --role-customer: #6366f1;
+  --role-owner: #eab308;
+  --role-staff: #0ea5e9;
+  --role-vendor: #f97316;
+  --role-provider: #10b981;
+  --role-admin: #ef4444;
+
+  /* Functional */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-white: #ffffff;
+
+  --success: #10b981;
+  --success-bg: #ecfdf5;
+  --danger: #ef4444;
+  --danger-bg: #fef2f2;
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Desktop window never scrolls; scrolling stays inside the device view */
+}
+
+body {
+  font-family: var(--font-family);
+  background: radial-gradient(circle at 50% 35%, #1e293b 0%, #0b1120 100%); /* Elegant studio backdrop */
+  color: var(--text-primary);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Monospace text */
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* Smartphone Container Framing - 100% Unclipped & Stable */
+.phone-device-shell {
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  height: min(780px, calc(100vh - 64px));
+  max-height: calc(100vh - 64px);
+  background-color: var(--bg-app);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.45), 0 0 0 6px #1e293b, 0 0 0 8px #334155;
+  border-radius: 40px;
+  margin: auto;
+  flex-shrink: 0;
+  transition: max-width 0.25s ease, height 0.25s ease, border-radius 0.25s ease, box-shadow 0.25s ease;
+}
+
+/* Full Web View Mode (when user toggles desktop web view) */
+.phone-device-shell.web-mode {
+  width: 100%;
+  max-width: 680px;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.2);
+  margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  html, body {
+    height: 100%;
+    overflow-y: auto;
+    background-color: var(--bg-app);
+  }
+  .phone-device-shell {
+    width: 100%;
+    max-width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0;
+  }
+}
+
+/* Mobile Status Bar */
+.mobile-status-bar {
+  height: 44px;
+  padding: 12px 20px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 100;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.mobile-status-bar.dark-text {
+  color: #0f172a;
+}
+
+.mobile-status-bar.light-text {
+  color: #ffffff;
+}
+
+.mobile-dynamic-island {
+  width: 110px;
+  height: 26px;
+  background-color: #000000;
+  border-radius: 20px;
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px;
+  z-index: 101;
+}
+
+.island-camera {
+  width: 10px;
+  height: 10px;
+  background: #111;
+  border-radius: 50%;
+  border: 1px solid #222;
+}
+
+.island-sensor {
+  width: 6px;
+  height: 6px;
+  background: #0d1b2a;
+  border-radius: 50%;
+}
+
+/* Screen Content Scrollable Area */
+.mobile-screen-scroll {
+  flex: 1;
+  height: 100%;
+  min-height: 0; /* CRITICAL for flex children to enable internal overflow-y scroll */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 100px; /* ample space so bottom features are never cut off by bottom nav */
+  box-sizing: border-box;
+  background-color: var(--bg-app);
+  display: flex;
+  flex-direction: column;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.mobile-screen-scroll::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Edge */
+}
+
+/* Native Header */
+.native-header {
+  height: 56px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #ffffff;
+  position: sticky;
+  top: 0;
+  z-index: 80;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.native-header-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  flex: 1;
+  text-align: center;
+}
+
+.native-header-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 50%;
+}
+
+.native-header-btn:active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Native Bottom Tab Bar */
+.native-tab-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 90;
+  padding: 0 6px 4px;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.native-tab-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  flex: 1;
+  height: 100%;
+  color: #9ca3af;
+  text-decoration: none;
+  padding: 4px 0;
+}
+
+.native-tab-item.active {
+  color: #6366f1;
+}
+
+.native-tab-label {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Testing Control Pill (Positioned outside device on desktop) */
+.desktop-testing-floating-hub {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 14px;
+  padding: 12px 16px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 999;
+  color: #f8fafc;
+}
+
+@media (max-width: 900px) {
+  .desktop-testing-floating-hub {
+    display: none;
+  }
+}
+
+/* Buttons */
+.native-btn-primary {
+  background: #6366f1;
+  color: #ffffff;
+  border: none;
+  padding: 14px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  width: 100%;
+}
+
+.native-btn-primary:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+.native-btn-primary:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Card primitives matching React Native */
+.native-card {
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f1f5f9;
+}
+
+/* Form inputs */
+.native-input {
+  width: 100%;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 15px;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.native-input:focus {
+  border-color: #6366f1;
+  background: #ffffff;
+}
+
+/* Universal Form Polish */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 14px;
+}
+
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-input,
+input[type="text"]:not(.header-input),
+input[type="tel"],
+input[type="email"],
+input[type="number"],
+select.form-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #f9fafb;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+  font-family: inherit;
+}
+
+.form-input:focus,
+input[type="text"]:focus,
+input[type="tel"]:focus,
+input[type="email"]:focus,
+input[type="number"]:focus {
+  border-color: #6366f1;
+  background: #ffffff;
+}
+
+/* QA Autonomous Feedback & AI Pipeline Widget Styles */
+@keyframes qaModalPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+#qa-feedback-fab-btn:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 14px 28px -4px rgba(99, 102, 241, 0.65), 0 6px 10px -2px rgba(0, 0, 0, 0.35);
+}
+
+#qa-feedback-fab-btn:active {
+  transform: translateY(1px) scale(0.98);
+}
+
+@media (max-width: 640px) {
+  .qa-floating-fab-container {
+    bottom: 80px !important;
+    right: 14px !important;
+  }
+  .qa-feedback-modal-card {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+}
+
