@@ -30,8 +30,45 @@ import {
 } from 'lucide-react';
 
 /**
+ * Robust trip datetime parser for intercity sleeper schedules
+ */
+const parseTripDateTime = (dateVal, timeVal = '21:30') => {
+  if (!dateVal) return null;
+  if (dateVal instanceof Date && !isNaN(dateVal.getTime())) return dateVal;
+  
+  if (typeof dateVal === 'string' && dateVal.includes('T')) {
+    const d = new Date(dateVal);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  const cleanDate = String(dateVal).replace(/ at /i, ' ').trim();
+  
+  let d = new Date(`${cleanDate} ${timeVal}`);
+  if (!isNaN(d.getTime())) return d;
+  
+  d = new Date(cleanDate);
+  if (!isNaN(d.getTime())) return d;
+
+  const norm = cleanDate.replace(/Sept/i, 'Sep');
+  d = new Date(`${norm} ${timeVal}`);
+  if (!isNaN(d.getTime())) return d;
+  d = new Date(norm);
+  if (!isNaN(d.getTime())) return d;
+
+  const parts = cleanDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (parts) {
+    const [_, day, month, year] = parts;
+    const [hh, mm] = (timeVal || '21:30').split(':');
+    return new Date(Number(year), Number(month) - 1, Number(day), Number(hh) || 0, Number(mm) || 0);
+  }
+
+  return null;
+};
+
+/**
  * Universal Normalizer to handle both Backend MongoDB Journey Documents
  * (with populated segments) and Local Redux / Client Bookings.
+ * Automatically resolves past trips to 'completed' if journey date/time has passed.
  */
 const normalizeBusBooking = (b) => {
   if (!b) return null;
@@ -59,18 +96,16 @@ const normalizeBusBooking = (b) => {
   const busNumber = b.busNumber || firstSeg?.busId?.registrationNumber || firstSeg?.busId?.chassisNumber || b.bus?.busNumber || 'MP-04-NB-1122';
 
   // 5. Travel Date & Time
-  let travelDate = b.travelDate || firstSeg?.travelDate || b.bookingDate || b.createdAt;
-  if (travelDate) {
-    try {
-      const d = new Date(travelDate);
-      if (!isNaN(d.getTime())) {
-        travelDate = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-      }
-    } catch (e) {}
-  } else {
-    travelDate = '26 Oct 2026';
-  }
+  let rawDate = b.travelDate || firstSeg?.travelDate || b.bookingDate || b.createdAt;
   const departureTime = b.departureTime || firstSeg?.departureTime || b.bus?.departureTime || '21:30';
+  let travelDate = '26 Oct 2026';
+  
+  const tripDateTime = parseTripDateTime(rawDate, departureTime);
+  if (tripDateTime && !isNaN(tripDateTime.getTime())) {
+    travelDate = tripDateTime.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  } else if (typeof rawDate === 'string' && rawDate.trim()) {
+    travelDate = rawDate;
+  }
 
   // 6. Seats / Berths
   let seats = [];
@@ -94,9 +129,25 @@ const normalizeBusBooking = (b) => {
     passengers = [{ name: 'Passenger', age: '28', gender: 'male' }];
   }
 
-  // 8. Amount & Status
+  // 8. Amount & Lifecycle Status
   const amount = b.amount || b.totalAmount || 944;
-  const status = (b.status || 'confirmed').toLowerCase();
+  const rawStatus = (b.status || 'confirmed').toLowerCase();
+
+  // Automatic Lifecycle Resolution:
+  // An intercity overnight sleeper journey completes within ~6 to 10 hours after departure.
+  // If departure time + 6-hour buffer has passed, automatically mark as completed!
+  const now = new Date();
+  const journeyBufferMs = 6 * 60 * 60 * 1000;
+  const isPastTrip = tripDateTime && (tripDateTime.getTime() + journeyBufferMs < now.getTime());
+
+  let status = rawStatus;
+  if (rawStatus !== 'cancelled') {
+    if (rawStatus === 'completed' || isPastTrip) {
+      status = 'completed';
+    } else {
+      status = 'confirmed';
+    }
+  }
 
   return {
     _id: b._id || pnr,
@@ -111,6 +162,7 @@ const normalizeBusBooking = (b) => {
     passengers,
     amount,
     status,
+    isPastTrip,
     raw: b,
   };
 };
@@ -237,9 +289,17 @@ const MyBookingsScreen = () => {
     return b.status === filter;
   });
 
-  const filteredYatra = yatraBookings.filter((y) => {
+  const normalizedYatraBookings = yatraBookings.map((y) => {
+    const rawStatus = (y.status || 'confirmed').toLowerCase();
+    const end = parseTripDateTime(y.endDate || y.startDate);
+    const isPast = end && end.getTime() < new Date().getTime();
+    const status = rawStatus === 'cancelled' ? 'cancelled' : isPast ? 'completed' : rawStatus;
+    return { ...y, status };
+  });
+
+  const filteredYatra = normalizedYatraBookings.filter((y) => {
     if (filter === 'all') return true;
-    return (y.status || 'confirmed').toLowerCase() === filter;
+    return y.status === filter;
   });
 
   return (
@@ -327,7 +387,7 @@ const MyBookingsScreen = () => {
             id: 'all', 
             label: 'All', 
             icon: Ticket, 
-            count: activeTab === 'bus' ? normalizedBusBookings.length : yatraBookings.length 
+            count: activeTab === 'bus' ? normalizedBusBookings.length : normalizedYatraBookings.length 
           },
           { 
             id: 'confirmed', 
@@ -335,7 +395,7 @@ const MyBookingsScreen = () => {
             icon: CheckCircle2, 
             count: activeTab === 'bus' 
               ? normalizedBusBookings.filter(b => b.status === 'confirmed').length 
-              : yatraBookings.filter(y => (y.status || 'confirmed').toLowerCase() === 'confirmed').length 
+              : normalizedYatraBookings.filter(y => y.status === 'confirmed').length 
           },
           { 
             id: 'completed', 
@@ -343,7 +403,7 @@ const MyBookingsScreen = () => {
             icon: Clock, 
             count: activeTab === 'bus' 
               ? normalizedBusBookings.filter(b => b.status === 'completed').length 
-              : yatraBookings.filter(y => (y.status || 'confirmed').toLowerCase() === 'completed').length 
+              : normalizedYatraBookings.filter(y => y.status === 'completed').length 
           },
           { 
             id: 'cancelled', 
@@ -351,7 +411,7 @@ const MyBookingsScreen = () => {
             icon: X, 
             count: activeTab === 'bus' 
               ? normalizedBusBookings.filter(b => b.status === 'cancelled').length 
-              : yatraBookings.filter(y => (y.status || 'confirmed').toLowerCase() === 'cancelled').length 
+              : normalizedYatraBookings.filter(y => y.status === 'cancelled').length 
           },
         ].map((tab) => {
           const isActive = filter === tab.id;
@@ -462,12 +522,21 @@ const MyBookingsScreen = () => {
                   <span style={{
                     backgroundColor: booking.status === 'confirmed' ? '#ecfdf5' : booking.status === 'completed' ? '#f1f5f9' : '#fef2f2',
                     color: booking.status === 'confirmed' ? '#059669' : booking.status === 'completed' ? '#475569' : '#dc2626',
+                    border: booking.status === 'confirmed' ? '1px solid #a7f3d0' : booking.status === 'completed' ? '1px solid #cbd5e1' : '1px solid #fecaca',
                     padding: '4px 10px',
                     borderRadius: '12px',
                     fontSize: '11px',
                     fontWeight: 800,
                     textTransform: 'uppercase',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
                   }}>
+                    {booking.status === 'confirmed' && (
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }} />
+                    )}
+                    {booking.status === 'completed' && <CheckCircle2 size={12} color="#475569" />}
+                    {booking.status === 'cancelled' && <span>✕</span>}
                     {booking.status}
                   </span>
                 </div>
@@ -540,49 +609,115 @@ const MyBookingsScreen = () => {
 
                 {/* Action Buttons */}
                 <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                  <button
-                    onClick={() => setSelectedQRBooking(booking)}
-                    style={{
-                      flex: 1,
-                      backgroundColor: '#4f46e5',
-                      color: '#ffffff',
-                      border: 'none',
-                      borderRadius: '12px',
-                      padding: '10px',
-                      fontSize: '12px',
-                      fontWeight: 800,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      cursor: 'pointer',
-                      boxShadow: '0 2px 8px rgba(79, 70, 229, 0.25)',
-                    }}
-                  >
-                    <QrCode size={15} />
-                    <span>QR Boarding Pass</span>
-                  </button>
+                  {booking.status === 'confirmed' ? (
+                    <>
+                      <button
+                        onClick={() => setSelectedQRBooking(booking)}
+                        style={{
+                          flex: 1,
+                          backgroundColor: '#4f46e5',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '12px',
+                          padding: '10px',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 8px rgba(79, 70, 229, 0.25)',
+                        }}
+                      >
+                        <QrCode size={15} />
+                        <span>QR Boarding Pass</span>
+                      </button>
 
-                  <button
-                    onClick={() => navigate(`/live-tracking/${booking.pnr}`, { state: { booking } })}
-                    style={{
-                      backgroundColor: '#eef2ff',
-                      color: '#4338ca',
-                      border: 'none',
-                      borderRadius: '12px',
-                      padding: '10px 14px',
-                      fontSize: '12px',
-                      fontWeight: 800,
+                      <button
+                        onClick={() => navigate(`/live-tracking/${booking.pnr}`, { state: { booking } })}
+                        style={{
+                          backgroundColor: '#eef2ff',
+                          color: '#4338ca',
+                          border: 'none',
+                          borderRadius: '12px',
+                          padding: '10px 14px',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '5px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <Radio size={14} />
+                        <span>Live Track</span>
+                      </button>
+                    </>
+                  ) : booking.status === 'completed' ? (
+                    <>
+                      <button
+                        onClick={() => setSelectedQRBooking(booking)}
+                        style={{
+                          flex: 1,
+                          backgroundColor: '#f8fafc',
+                          color: '#334155',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '12px',
+                          padding: '10px',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <FileText size={15} color="#475569" />
+                        <span>E-Ticket & Receipt</span>
+                      </button>
+
+                      <button
+                        onClick={() => navigate(`/results?from=${booking.from}&to=${booking.to}`)}
+                        style={{
+                          backgroundColor: '#eef2ff',
+                          color: '#4338ca',
+                          border: 'none',
+                          borderRadius: '12px',
+                          padding: '10px 14px',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '5px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <RefreshCw size={14} />
+                        <span>Book Again</span>
+                      </button>
+                    </>
+                  ) : (
+                    <div style={{
+                      width: '100%',
+                      backgroundColor: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      borderRadius: '10px',
+                      padding: '8px 12px',
+                      fontSize: '11px',
+                      color: '#991b1b',
+                      fontWeight: 700,
                       display: 'flex',
                       alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '5px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <Radio size={14} />
-                    <span>Live Track</span>
-                  </button>
+                      justifyContent: 'space-between',
+                    }}>
+                      <span>Cancelled by Passenger • Refund Initiated</span>
+                      <span style={{ fontWeight: 800 }}>₹{booking.amount}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))
