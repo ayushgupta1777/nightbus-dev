@@ -1309,7 +1309,7 @@ const BusManagementScreen = () => {
             {activeTab === 'deck' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {/* Deck Selector */}
-                {isSleeper && (
+                {(inspectingBus.busType || '').includes('Sleeper') && (
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button
                       type="button"
