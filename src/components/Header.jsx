@@ -84,20 +84,22 @@ const Header = ({ onOpenRoleModal, viewMode = 'phone', onToggleViewMode }) => {
           <button
             onClick={() => navigate('/test-login')}
             style={{
-              background: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              color: '#34d399',
+              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.18) 0%, rgba(217, 119, 6, 0.28) 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.45)',
+              color: '#fef08a',
               borderRadius: '8px',
-              padding: '6px 10px',
+              padding: '6px 11px',
               fontSize: '12px',
-              fontWeight: 600,
+              fontWeight: 700,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '4px',
+              gap: '5px',
+              boxShadow: '0 2px 8px rgba(245, 158, 11, 0.15)',
             }}
+            title="Open Quick Persona Login Screen"
           >
-            <Zap size={13} />
+            <Zap size={13} color="#f59e0b" fill="#f59e0b" />
             <span>Quick Login</span>
           </button>
 

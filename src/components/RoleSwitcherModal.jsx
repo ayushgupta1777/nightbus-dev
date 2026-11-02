@@ -32,7 +32,7 @@ const RoleSwitcherModal = ({ isOpen, onClose }) => {
       badge: 'Passenger',
       phone: '9876543210',
       icon: User,
-      color: '#10b981',
+      color: '#6366f1',
       desc: 'Search buses, 2D deck seat selection, Razorpay checkout, live bus tracking, Yatra tours & food ordering.',
       defaultRoute: '/',
     },
@@ -42,7 +42,7 @@ const RoleSwitcherModal = ({ isOpen, onClose }) => {
       badge: 'Fleet Operator',
       phone: '8765432109',
       icon: Bus,
-      color: '#6366f1',
+      color: '#d97706',
       desc: 'Fleet overview, add buses, interactive seat layout builder, smart multi-stop route maker & revenue analytics.',
       defaultRoute: '/owner/dashboard',
     },
@@ -52,7 +52,7 @@ const RoleSwitcherModal = ({ isOpen, onClose }) => {
       badge: 'Trip Crew',
       phone: '7654321098',
       icon: Users,
-      color: '#f59e0b',
+      color: '#0284c7',
       desc: 'Live webcam QR boarding pass scanner, passenger manifest, manual PNR ticket check-in & trip status updates.',
       defaultRoute: '/staff/dashboard',
     },
@@ -62,19 +62,19 @@ const RoleSwitcherModal = ({ isOpen, onClose }) => {
       badge: 'Kitchen Partner',
       phone: '6543210987',
       icon: UtensilsCrossed,
-      color: '#f43f5e',
+      color: '#ea580c',
       desc: 'Live passenger meal orders queue, onboard menu item manager, pricing, stock availability.',
-      defaultRoute: '/vendor/dashboard',
+      defaultRoute: '/food',
     },
     {
       id: 'provider',
       title: 'Bus Service Provider',
-      badge: 'Maintenance',
+      badge: 'Maintenance & Rentals',
       phone: '4321098765',
       icon: Wrench,
-      color: '#8b5cf6',
-      desc: 'Fleet repair requests, roadside assistance dispatch, coverage areas and lead quotations.',
-      defaultRoute: '/provider/dashboard',
+      color: '#0d9488',
+      desc: 'Charter bus rentals, wedding group tours, roadside assistance dispatch & repair services.',
+      defaultRoute: '/rentals',
     },
     {
       id: 'admin',
@@ -82,17 +82,17 @@ const RoleSwitcherModal = ({ isOpen, onClose }) => {
       badge: 'Super Admin',
       phone: '5432109876',
       icon: ShieldCheck,
-      color: '#10b981',
+      color: '#e11d48',
       desc: 'Platform-wide telemetry, promotional banners & home content manager, discount coupons creation.',
-      defaultRoute: '/admin/dashboard',
+      defaultRoute: '/owner/dashboard',
     },
     {
       id: 'developer',
       title: 'Developer Control Room',
-      badge: 'Dev Mode',
+      badge: 'Dev Cockpit',
       phone: '9999999999',
       icon: Terminal,
-      color: '#ec4899',
+      color: '#7c3aed',
       desc: 'Direct MongoDB database collection viewer, telemetry debugger, test triggers and audit traces.',
       defaultRoute: '/developer',
     },
@@ -104,11 +104,20 @@ const RoleSwitcherModal = ({ isOpen, onClose }) => {
     // Also attempt quick login if not already logged in with this role
     try {
       const res = await testLogin(roleObj.phone, roleObj.id);
-      if (res.success && res.token && res.user) {
+      if (res && res.success && res.token && res.user) {
         dispatch(setCredentials({ user: res.user, token: res.token, activeRole: roleObj.id }));
       }
     } catch (e) {
-      console.warn('Quick login note:', e);
+      console.warn('Quick login online fallback:', e);
+      const mockUser = {
+        _id: 'test_' + roleObj.id,
+        name: `Test ${roleObj.title}`,
+        phone: roleObj.phone,
+        email: `${roleObj.id}@nightbus.test`,
+        role: roleObj.id,
+      };
+      const mockToken = 'mock_jwt_token_for_' + roleObj.id;
+      dispatch(setCredentials({ user: mockUser, token: mockToken, activeRole: roleObj.id }));
     }
 
     onClose();
