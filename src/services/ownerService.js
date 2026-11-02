@@ -25,6 +25,14 @@ export const createRoute = async (routeData) => {
   return await api.post('/routes', routeData);
 };
 
+export const updateRouteStatus = async (routeId, statusData) => {
+  return await api.put(`/routes/${routeId}`, statusData);
+};
+
+export const deleteRoute = async (routeId) => {
+  return await api.delete(`/routes/${routeId}`);
+};
+
 export const getOwnerTrips = async (params) => {
   return await api.get('/trips', params);
 };

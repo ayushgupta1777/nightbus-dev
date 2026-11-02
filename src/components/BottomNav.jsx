@@ -37,7 +37,7 @@ const BottomNav = () => {
   const ownerTabs = [
     { path: '/owner/dashboard', label: 'Dashboard', icon: BarChart3 },
     { path: '/owner/buses', label: 'Buses', icon: Bus },
-    { path: '/owner/routes/builder', label: 'Routes', icon: Settings },
+    { path: '/owner/routes', label: 'Routes', icon: Settings },
     { path: '/wallet', label: 'Revenue', icon: Ticket },
     { path: '/profile', label: 'Profile', icon: User },
   ];

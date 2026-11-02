@@ -90,6 +90,7 @@ function App() {
             {/* Bus Owner Routes */}
             <Route path="/owner/dashboard" element={<OwnerDashboardScreen />} />
             <Route path="/owner/buses" element={<BusManagementScreen />} />
+            <Route path="/owner/routes" element={<SmartRouteBuilderScreen />} />
             <Route path="/owner/routes/builder" element={<SmartRouteBuilderScreen />} />
             <Route path="/owner/yatra" element={<OwnerYatraScreen />} />
             <Route path="/owner/revenue" element={<WalletScreen />} />
