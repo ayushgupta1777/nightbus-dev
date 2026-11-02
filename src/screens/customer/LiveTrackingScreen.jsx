@@ -122,6 +122,7 @@ const LiveTrackingScreen = () => {
 
   const [booking, setBooking] = useState(null);
   const [profile, setProfile] = useState(ROUTE_PROFILES['Katni-Jabalpur']);
+  const [tripState, setTripState] = useState('on-route'); // 'scheduled' | 'boarding' | 'on-route' | 'delayed' | 'completed' | 'cancelled'
   const [currentSpeed, setCurrentSpeed] = useState(64);
   const [busCoords, setBusCoords] = useState(ROUTE_PROFILES['Katni-Jabalpur'].initialBusPos);
   const [isCopied, setIsCopied] = useState(false);
@@ -179,6 +180,49 @@ const LiveTrackingScreen = () => {
     }
   }, [tripId, location.state]);
 
+  // Trip State Simulator Presets
+  const TRIP_STATE_PRESETS = [
+    { id: 'scheduled', label: 'Scheduled (Depot)', speed: 0, tag: '0 km/h • Parked', color: '#6366f1' },
+    { id: 'boarding', label: 'Boarding Active', speed: 0, tag: '0 km/h • Platform 2', color: '#059669' },
+    { id: 'on-route', label: 'Cruising (Live)', speed: 64, tag: '64 km/h • Highway', color: '#10b981' },
+    { id: 'delayed', label: 'Delayed (+25m)', speed: 18, tag: '18 km/h • Fog/Traffic', color: '#f59e0b' },
+    { id: 'completed', label: 'Completed', speed: 0, tag: 'Arrived at ISBT', color: '#059669' },
+    { id: 'cancelled', label: 'Cancelled', speed: 0, tag: '100% Refunded', color: '#ef4444' },
+  ];
+
+  const handleSelectTripState = (stateId) => {
+    setTripState(stateId);
+    if (!profile) return;
+
+    if (stateId === 'scheduled' || stateId === 'boarding') {
+      setCurrentSpeed(0);
+      const originCoords = profile.stops[0].coords;
+      setBusCoords(originCoords);
+      if (busMarkerRef.current) busMarkerRef.current.setLatLng(originCoords);
+      if (mapInstanceRef.current) mapInstanceRef.current.setView(originCoords, 13, { animate: true });
+    } else if (stateId === 'completed') {
+      setCurrentSpeed(0);
+      const destCoords = profile.stops[profile.stops.length - 1].coords;
+      setBusCoords(destCoords);
+      if (busMarkerRef.current) busMarkerRef.current.setLatLng(destCoords);
+      if (mapInstanceRef.current) mapInstanceRef.current.setView(destCoords, 13, { animate: true });
+    } else if (stateId === 'delayed') {
+      setCurrentSpeed(18);
+      const delayedPos = [23.5412, 80.1789];
+      setBusCoords(delayedPos);
+      if (busMarkerRef.current) busMarkerRef.current.setLatLng(delayedPos);
+      if (mapInstanceRef.current) mapInstanceRef.current.setView(delayedPos, 12, { animate: true });
+    } else if (stateId === 'cancelled') {
+      setCurrentSpeed(0);
+    } else if (stateId === 'on-route') {
+      setCurrentSpeed(64);
+      const cruisePos = profile.initialBusPos;
+      setBusCoords(cruisePos);
+      if (busMarkerRef.current) busMarkerRef.current.setLatLng(cruisePos);
+      if (mapInstanceRef.current) mapInstanceRef.current.setView(cruisePos, 11, { animate: true });
+    }
+  };
+
   // 2. Initialize Real Leaflet Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -190,7 +234,7 @@ const LiveTrackingScreen = () => {
     }
 
     const map = L.map(mapContainerRef.current, {
-      center: profile.initialBusPos,
+      center: busCoords,
       zoom: 11,
       zoomControl: false,
       attributionControl: false,
@@ -286,12 +330,11 @@ const LiveTrackingScreen = () => {
       iconAnchor: [22, 22],
     });
 
-    const busMarker = L.marker(profile.initialBusPos, { icon: busIcon, zIndexOffset: 1000 }).addTo(map);
-    busMarker.bindPopup(`<strong>${profile.busName}</strong><br/>Reg: ${profile.busNumber}<br/>Speed: ${currentSpeed} km/h`);
+    const busMarker = L.marker(busCoords, { icon: busIcon, zIndexOffset: 1000 }).addTo(map);
+    busMarker.bindPopup(`<strong>${profile.busName}</strong><br/>Reg: ${profile.busNumber}<br/>Status: ${tripState.toUpperCase()}`);
     busMarkerRef.current = busMarker;
     mapInstanceRef.current = map;
 
-    // Invalidate size after layout stabilization
     const timer = setTimeout(() => {
       if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
     }, 200);
@@ -305,14 +348,14 @@ const LiveTrackingScreen = () => {
     };
   }, [profile]);
 
-  // 3. Simulated Live GPS Telemetry Jitter & Bus Micro-movement
+  // 3. Live GPS Telemetry Jitter & Bus Micro-movement (Only active if on-route)
   useEffect(() => {
+    if (tripState !== 'on-route') return;
+
     const interval = setInterval(() => {
-      // Jitter speed between 61 and 69 km/h
       const newSpeed = 61 + Math.floor(Math.random() * 8);
       setCurrentSpeed(newSpeed);
 
-      // Micro-shift bus location forward slightly for live feeling
       setBusCoords(prev => {
         const nextLat = prev[0] - 0.00015;
         const nextLng = prev[1] - 0.00012;
@@ -326,7 +369,7 @@ const LiveTrackingScreen = () => {
     }, 4000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [tripState]);
 
   const handleRecenterBus = () => {
     if (mapInstanceRef.current) {
@@ -350,6 +393,47 @@ const LiveTrackingScreen = () => {
     }
   };
 
+  // Dynamic Stop Progress calculation
+  const computedStops = profile.stops.map((stop, index) => {
+    if (tripState === 'scheduled') {
+      return {
+        ...stop,
+        status: index === 0 ? 'current' : 'upcoming',
+        desc: index === 0 ? 'Bus parked at depot • Boarding starts in 30m' : 'Upcoming corridor stop'
+      };
+    }
+    if (tripState === 'boarding') {
+      return {
+        ...stop,
+        status: index === 0 ? 'current' : 'upcoming',
+        desc: index === 0 ? 'Boarding in progress • Conductor verifying tickets' : 'Upcoming corridor stop'
+      };
+    }
+    if (tripState === 'completed') {
+      return {
+        ...stop,
+        status: 'completed',
+        desc: index === profile.stops.length - 1 ? 'Final destination reached safely ✓' : 'Stop completed on time'
+      };
+    }
+    if (tripState === 'cancelled') {
+      return {
+        ...stop,
+        status: 'cancelled',
+        desc: 'Trip cancelled due to highway closure advisory'
+      };
+    }
+    if (tripState === 'delayed') {
+      return {
+        ...stop,
+        status: index <= 1 ? 'completed' : index === 2 ? 'current' : 'upcoming',
+        desc: index === 2 ? 'Delay +25m • Slow cruise due to bypass traffic' : stop.desc
+      };
+    }
+    // on-route default
+    return stop;
+  });
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc', minHeight: '100%', paddingBottom: '30px' }}>
       {/* Dynamic Keyframes for pulsing markers */}
@@ -364,7 +448,7 @@ const LiveTrackingScreen = () => {
       <div style={{
         background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
         color: '#ffffff',
-        padding: '16px 16px 20px',
+        padding: '16px 16px 16px',
         boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
@@ -392,8 +476,8 @@ const LiveTrackingScreen = () => {
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
-                backgroundColor: '#10b981',
-                boxShadow: '0 0 8px #10b981',
+                backgroundColor: tripState === 'cancelled' ? '#ef4444' : tripState === 'delayed' ? '#f59e0b' : '#10b981',
+                boxShadow: `0 0 8px ${tripState === 'cancelled' ? '#ef4444' : '#10b981'}`,
               }} />
               <span style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '0.3px' }}>
                 Live Bus Tracking
@@ -448,9 +532,211 @@ const LiveTrackingScreen = () => {
             </div>
           </div>
         </div>
+
+        {/* ── REAL-TIME TRIP STATE SIMULATOR BAR (Interactive QA & Real-Time Test) ── */}
+        <div style={{ marginTop: '12px' }}>
+          <div style={{ fontSize: '10px', fontWeight: 800, color: '#c7d2fe', textTransform: 'uppercase', marginBottom: '6px' }}>
+            Trip Real-Time Status Simulator:
+          </div>
+          <div style={{
+            display: 'flex',
+            gap: '6px',
+            overflowX: 'auto',
+            paddingBottom: '4px',
+            scrollbarWidth: 'none',
+          }}>
+            {TRIP_STATE_PRESETS.map((state) => {
+              const isActive = tripState === state.id;
+              return (
+                <button
+                  key={state.id}
+                  onClick={() => handleSelectTripState(state.id)}
+                  style={{
+                    whiteSpace: 'nowrap',
+                    padding: '5px 10px',
+                    borderRadius: '16px',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    border: isActive ? '2px solid #ffffff' : '1px solid rgba(255, 255, 255, 0.25)',
+                    backgroundColor: isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.12)',
+                    color: isActive ? '#4f46e5' : '#ffffff',
+                    boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <span style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: isActive ? state.color : 'rgba(255,255,255,0.7)',
+                  }} />
+                  {state.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+        {/* ── TRIP STATE ALERT & NOTICE BANNERS ─────────────────────────────── */}
+        {tripState === 'scheduled' && (
+          <div style={{
+            backgroundColor: '#eef2ff',
+            border: '1px solid #c7d2fe',
+            borderRadius: '14px',
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}>
+            <div style={{ backgroundColor: '#6366f1', color: '#fff', borderRadius: '8px', padding: '6px', flexShrink: 0 }}>
+              <Clock size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#3730a3' }}>
+                Trip Scheduled • Bus Parked at Origin Terminal
+              </div>
+              <div style={{ fontSize: '11px', color: '#4338ca', marginTop: '2px' }}>
+                Bus {profile.busNumber} is parked at Katni ISBT Platform 2. Pre-trip safety and AC cooling in progress. Boarding opens at 21:15 (Departs 21:30).
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tripState === 'boarding' && (
+          <div style={{
+            backgroundColor: '#ecfdf5',
+            border: '1px solid #a7f3d0',
+            borderRadius: '14px',
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}>
+            <div style={{ backgroundColor: '#059669', color: '#fff', borderRadius: '8px', padding: '6px', flexShrink: 0 }}>
+              <CheckCircle2 size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#065f46' }}>
+                Boarding In Progress at Platform 2
+              </div>
+              <div style={{ fontSize: '11px', color: '#047857', marginTop: '2px' }}>
+                Conductor Santosh Tiwari is verifying tickets. Please show your digital ticket for Berth L6 upon entering.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tripState === 'delayed' && (
+          <div style={{
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: '14px',
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}>
+            <div style={{ backgroundColor: '#f59e0b', color: '#fff', borderRadius: '8px', padding: '6px', flexShrink: 0 }}>
+              <AlertTriangle size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#92400e' }}>
+                Highway Congestion & Fog Advisory (+25m Delay)
+              </div>
+              <div style={{ fontSize: '11px', color: '#b45309', marginTop: '2px' }}>
+                Dense fog and traffic slowdown near Sleemanabad Bypass. Bus speed reduced to 18 km/h for passenger safety. Revised arrival: 00:20.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tripState === 'completed' && (
+          <div style={{
+            backgroundColor: '#ecfdf5',
+            border: '1px solid #a7f3d0',
+            borderRadius: '14px',
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+          }}>
+            <div style={{ backgroundColor: '#059669', color: '#fff', borderRadius: '8px', padding: '6px', flexShrink: 0 }}>
+              <CheckCircle2 size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#065f46' }}>
+                Journey Completed • Safely Arrived
+              </div>
+              <div style={{ fontSize: '11px', color: '#047857', marginTop: '2px' }}>
+                Bus has docked at Jabalpur ISBT Platform 4. We hope you had a restful night in sleeper Berth L6!
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tripState === 'cancelled' && (
+          <div style={{
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '14px',
+            padding: '14px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '10px',
+          }}>
+            <div style={{ backgroundColor: '#ef4444', color: '#fff', borderRadius: '8px', padding: '6px', flexShrink: 0 }}>
+              <AlertTriangle size={20} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '14px', fontWeight: 900, color: '#991b1b' }}>
+                TRIP CANCELLED • 100% REFUND PROCESSED
+              </div>
+              <div style={{ fontSize: '12px', color: '#b91c1c', marginTop: '4px', lineHeight: 1.4 }}>
+                This trip was officially cancelled due to severe route safety advisory. Full refund of <strong>₹944</strong> has been initiated back to your payment source. Reference: <strong>RFND-88219</strong>.
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                <a
+                  href="tel:18002008899"
+                  style={{
+                    backgroundColor: '#dc2626',
+                    color: '#fff',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <Phone size={12} /> Call Support Hotline
+                </a>
+                <button
+                  onClick={() => navigate('/results')}
+                  style={{
+                    backgroundColor: '#ffffff',
+                    color: '#991b1b',
+                    border: '1px solid #fca5a5',
+                    padding: '6px 12px',
+                    borderRadius: '8px',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Book Alternate Bus
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── REAL INTERACTIVE LEAFLET MAP ────────────────────────────────────── */}
         <div style={{
@@ -563,14 +849,21 @@ const LiveTrackingScreen = () => {
               width: '7px',
               height: '7px',
               borderRadius: '50%',
-              backgroundColor: '#10b981',
-              boxShadow: '0 0 6px #10b981',
+              backgroundColor: tripState === 'cancelled' ? '#ef4444' : tripState === 'delayed' ? '#f59e0b' : '#10b981',
+              boxShadow: `0 0 6px ${tripState === 'cancelled' ? '#ef4444' : '#10b981'}`,
             }} />
-            <span>4G Telemetry • Live 3s ago</span>
+            <span>
+              {tripState === 'scheduled' && 'Depot Standby • GPS Active'}
+              {tripState === 'boarding' && 'Terminal Boarding • Platform 2'}
+              {tripState === 'on-route' && '4G Telemetry • Live 3s ago'}
+              {tripState === 'delayed' && 'Highway Advisory • Slow Traffic'}
+              {tripState === 'completed' && 'Destination Reached • Parked'}
+              {tripState === 'cancelled' && 'Trip Cancelled • Offline'}
+            </span>
           </div>
         </div>
 
-        {/* ── TELEMETRY HUD TILES (Clean High-Contrast Cards) ──────────────────── */}
+        {/* ── TELEMETRY HUD TILES (Clean High-Contrast Dynamic Cards) ─────────── */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
@@ -588,11 +881,16 @@ const LiveTrackingScreen = () => {
             <div style={{ fontSize: '10px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
               CURRENT SPEED
             </div>
-            <div style={{ fontSize: '20px', fontWeight: 900, color: '#059669', margin: '4px 0 2px' }}>
+            <div style={{ fontSize: '20px', fontWeight: 900, color: tripState === 'delayed' ? '#d97706' : tripState === 'cancelled' ? '#dc2626' : currentSpeed === 0 ? '#64748b' : '#059669', margin: '4px 0 2px' }}>
               {currentSpeed} <span style={{ fontSize: '11px', fontWeight: 600 }}>km/h</span>
             </div>
-            <div style={{ fontSize: '10px', color: '#059669', fontWeight: 700 }}>
-              Highway Cruising
+            <div style={{ fontSize: '10px', color: tripState === 'delayed' ? '#d97706' : tripState === 'cancelled' ? '#dc2626' : currentSpeed === 0 ? '#64748b' : '#059669', fontWeight: 700 }}>
+              {tripState === 'scheduled' && 'Parked at Depot'}
+              {tripState === 'boarding' && 'Platform 2 Bay'}
+              {tripState === 'on-route' && 'Highway Cruising'}
+              {tripState === 'delayed' && 'Traffic Slowdown'}
+              {tripState === 'completed' && 'Trip Completed'}
+              {tripState === 'cancelled' && 'Trip Cancelled'}
             </div>
           </div>
 
@@ -609,10 +907,15 @@ const LiveTrackingScreen = () => {
               EST. ARRIVAL
             </div>
             <div style={{ fontSize: '20px', fontWeight: 900, color: '#0f172a', margin: '4px 0 2px' }}>
-              {profile.etaTime}
+              {tripState === 'delayed' ? '00:20' : tripState === 'completed' ? 'Arrived' : tripState === 'cancelled' ? 'Voided' : profile.etaTime}
             </div>
-            <div style={{ fontSize: '10px', color: '#6366f1', fontWeight: 700 }}>
-              ~{profile.eta} left
+            <div style={{ fontSize: '10px', color: tripState === 'delayed' ? '#d97706' : '#6366f1', fontWeight: 700 }}>
+              {tripState === 'scheduled' && 'Departs at 21:30'}
+              {tripState === 'boarding' && 'Boarding Now'}
+              {tripState === 'on-route' && `~${profile.eta} left`}
+              {tripState === 'delayed' && '+25m Fog Delay'}
+              {tripState === 'completed' && 'Docked at Port'}
+              {tripState === 'cancelled' && 'Refund Active'}
             </div>
           </div>
 
@@ -629,7 +932,7 @@ const LiveTrackingScreen = () => {
               DISTANCE LEFT
             </div>
             <div style={{ fontSize: '20px', fontWeight: 900, color: '#4f46e5', margin: '4px 0 2px' }}>
-              {profile.distanceLeftKm} <span style={{ fontSize: '11px', fontWeight: 600 }}>km</span>
+              {tripState === 'scheduled' || tripState === 'boarding' ? '85' : tripState === 'completed' || tripState === 'cancelled' ? '0' : tripState === 'delayed' ? '48' : profile.distanceLeftKm} <span style={{ fontSize: '11px', fontWeight: 600 }}>km</span>
             </div>
             <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>
               To {booking?.to || profile.to}
@@ -637,59 +940,75 @@ const LiveTrackingScreen = () => {
           </div>
         </div>
 
-        {/* ── FOOD / DINNER REST STOP CALLOUT ─────────────────────────────────── */}
-        <div style={{
-          backgroundColor: '#fffbeb',
-          border: '1px solid #fef3c7',
-          borderRadius: '16px',
-          padding: '12px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '10px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{
-              width: '36px',
-              height: '36px',
-              borderRadius: '10px',
-              backgroundColor: '#fef3c7',
-              color: '#d97706',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-            }}>
-              <UtensilsCrossed size={18} />
-            </div>
-            <div>
-              <div style={{ fontSize: '12px', fontWeight: 800, color: '#92400e' }}>
-                Next Stop: Sihora Food Plaza (in 15 min)
+        {/* ── FOOD / DINNER REST STOP CALLOUT (Linked to Booked Route) ────────── */}
+        {tripState !== 'cancelled' && tripState !== 'completed' && (
+          <div style={{
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fef3c7',
+            borderRadius: '16px',
+            padding: '12px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                backgroundColor: '#fef3c7',
+                color: '#d97706',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <UtensilsCrossed size={18} />
               </div>
-              <div style={{ fontSize: '11px', color: '#b45309' }}>
-                Pre-order warm Thali or Chai delivered directly to your berth.
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: '#92400e' }}>
+                  Next Stop: Sihora Highway Food Plaza (Halt 22:45)
+                </div>
+                <div style={{ fontSize: '11px', color: '#b45309' }}>
+                  Delivered right to your sleeper berth L6 during the 25 min halt.
+                </div>
               </div>
             </div>
-          </div>
 
-          <button
-            onClick={() => navigate('/food')}
-            style={{
-              backgroundColor: '#f59e0b',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '10px',
-              padding: '8px 12px',
-              fontSize: '11px',
-              fontWeight: 800,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              boxShadow: '0 2px 6px rgba(245, 158, 11, 0.3)',
-            }}
-          >
-            Order Food
-          </button>
-        </div>
+            <button
+              onClick={() => navigate('/food', {
+                state: {
+                  booking,
+                  routeKey: `${profile.from}-${profile.to}`,
+                  haltPoint: {
+                    name: 'Sihora Highway Food Plaza',
+                    highway: 'NH-30 Katni - Jabalpur Corridor',
+                    time: '22:45',
+                    duration: '25 min halt',
+                    status: 'Halt in ~15 mins',
+                    rating: '4.9',
+                    fssai: 'FSSAI Lic: 104230008912',
+                  }
+                }
+              })}
+              style={{
+                backgroundColor: '#f59e0b',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '8px 12px',
+                fontSize: '11px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 2px 6px rgba(245, 158, 11, 0.3)',
+              }}
+            >
+              Order Food
+            </button>
+          </div>
+        )}
 
         {/* ── ONBOARD VEHICLE HEALTH & AMENITIES ───────────────────────────────── */}
         <div style={{
@@ -715,7 +1034,9 @@ const LiveTrackingScreen = () => {
               <Fuel size={16} color="#10b981" />
               <div>
                 <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>FUEL</div>
-                <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>78% Tank</div>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>
+                  {tripState === 'scheduled' ? '95% Full' : '78% Tank'}
+                </div>
               </div>
             </div>
 
@@ -730,7 +1051,9 @@ const LiveTrackingScreen = () => {
               <Thermometer size={16} color="#0284c7" />
               <div>
                 <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>CABIN AC</div>
-                <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>22°C Cool</div>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>
+                  {tripState === 'scheduled' ? 'Pre-cooling' : '22°C Cool'}
+                </div>
               </div>
             </div>
 
@@ -745,7 +1068,9 @@ const LiveTrackingScreen = () => {
               <Wifi size={16} color="#6366f1" />
               <div>
                 <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 700 }}>WI-FI</div>
-                <div style={{ fontSize: '12px', fontWeight: 800, color: '#10b981' }}>Connected</div>
+                <div style={{ fontSize: '12px', fontWeight: 800, color: tripState === 'cancelled' ? '#ef4444' : '#10b981' }}>
+                  {tripState === 'cancelled' ? 'Offline' : 'Connected'}
+                </div>
               </div>
             </div>
           </div>
@@ -765,33 +1090,39 @@ const LiveTrackingScreen = () => {
               <div style={{ fontSize: '11px', color: '#64748b' }}>Scheduled timing vs live GPS check-ins</div>
             </div>
             <span style={{
-              backgroundColor: '#ecfdf5',
-              color: '#059669',
+              backgroundColor: tripState === 'delayed' ? '#fef3c7' : tripState === 'cancelled' ? '#fee2e2' : '#ecfdf5',
+              color: tripState === 'delayed' ? '#b45309' : tripState === 'cancelled' ? '#dc2626' : '#059669',
               padding: '3px 8px',
               borderRadius: '8px',
               fontSize: '11px',
               fontWeight: 800,
             }}>
-              ON TIME
+              {tripState === 'scheduled' && 'SCHEDULED'}
+              {tripState === 'boarding' && 'BOARDING'}
+              {tripState === 'on-route' && 'ON TIME'}
+              {tripState === 'delayed' && '+25M DELAY'}
+              {tripState === 'completed' && 'COMPLETED'}
+              {tripState === 'cancelled' && 'CANCELLED'}
             </span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {profile.stops.map((stop, idx) => {
+            {computedStops.map((stop, idx) => {
               const isCompleted = stop.status === 'completed';
               const isCurrent = stop.status === 'current';
+              const isCancelled = stop.status === 'cancelled';
 
               return (
                 <div key={idx} style={{ display: 'flex', gap: '14px', position: 'relative' }}>
                   {/* Vertical bar line */}
-                  {idx < profile.stops.length - 1 && (
+                  {idx < computedStops.length - 1 && (
                     <div style={{
                       position: 'absolute',
                       left: '13px',
                       top: '26px',
                       bottom: '-18px',
                       width: '2px',
-                      backgroundColor: isCompleted ? '#10b981' : '#e2e8f0',
+                      backgroundColor: isCompleted ? '#10b981' : isCancelled ? '#fca5a5' : '#e2e8f0',
                     }} />
                   )}
 
@@ -800,8 +1131,8 @@ const LiveTrackingScreen = () => {
                     width: '28px',
                     height: '28px',
                     borderRadius: '50%',
-                    backgroundColor: isCurrent ? '#4f46e5' : isCompleted ? '#ecfdf5' : '#f1f5f9',
-                    border: isCurrent ? '3px solid #c7d2fe' : isCompleted ? '2px solid #10b981' : '2px solid #cbd5e1',
+                    backgroundColor: isCurrent ? '#4f46e5' : isCompleted ? '#ecfdf5' : isCancelled ? '#fef2f2' : '#f1f5f9',
+                    border: isCurrent ? '3px solid #c7d2fe' : isCompleted ? '2px solid #10b981' : isCancelled ? '2px solid #ef4444' : '2px solid #cbd5e1',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -811,7 +1142,8 @@ const LiveTrackingScreen = () => {
                   }}>
                     {isCompleted && <CheckCircle2 size={15} color="#059669" />}
                     {isCurrent && <Radio size={14} color="#ffffff" />}
-                    {!isCompleted && !isCurrent && (
+                    {isCancelled && <span style={{ fontSize: '11px', fontWeight: 900, color: '#ef4444' }}>✕</span>}
+                    {!isCompleted && !isCurrent && !isCancelled && (
                       <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#94a3b8' }} />
                     )}
                   </div>
@@ -821,14 +1153,14 @@ const LiveTrackingScreen = () => {
                       <span style={{
                         fontWeight: isCurrent ? 800 : 700,
                         fontSize: '13px',
-                        color: isCurrent ? '#4f46e5' : isCompleted ? '#0f172a' : '#64748b',
+                        color: isCurrent ? '#4f46e5' : isCompleted ? '#0f172a' : isCancelled ? '#ef4444' : '#64748b',
                       }}>
                         {stop.name}
                       </span>
                       <span className="mono" style={{
                         fontSize: '11px',
                         fontWeight: 700,
-                        color: isCurrent ? '#4f46e5' : '#64748b',
+                        color: isCurrent ? '#4f46e5' : isCancelled ? '#ef4444' : '#64748b',
                       }}>
                         {stop.time}
                       </span>
@@ -836,7 +1168,7 @@ const LiveTrackingScreen = () => {
 
                     <p style={{
                       fontSize: '11px',
-                      color: isCurrent ? '#4f46e5' : '#94a3b8',
+                      color: isCurrent ? '#4f46e5' : isCancelled ? '#b91c1c' : '#94a3b8',
                       marginTop: '2px',
                       fontWeight: isCurrent ? 600 : 400,
                     }}>

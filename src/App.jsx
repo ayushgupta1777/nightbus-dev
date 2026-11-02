@@ -48,9 +48,9 @@ function App() {
   const [viewMode, setViewMode] = useState('phone'); // 'phone' or 'web'
   const location = useLocation();
 
-  // Hide bottom nav on specific fullscreen views like scanner, auth screens
+  // Hide bottom nav on specific fullscreen views like scanner, auth screens, and live tracking
   const hideBottomNavOnRoutes = ['/staff/scanner', '/login', '/test-login'];
-  const showBottomNav = !hideBottomNavOnRoutes.includes(location.pathname);
+  const showBottomNav = !hideBottomNavOnRoutes.includes(location.pathname) && !location.pathname.startsWith('/live-tracking');
 
   return (
     <>
