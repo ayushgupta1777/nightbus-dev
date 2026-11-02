@@ -85,14 +85,14 @@ const BottomNav = () => {
       bottom: 0,
       left: 0,
       right: 0,
-      height: '60px',
+      height: 'calc(60px + env(safe-area-inset-bottom, 0px))',
       backgroundColor: '#ffffff',
       borderTop: '1px solid #e5e7eb',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-around',
       zIndex: 90,
-      padding: '4px 6px 6px',
+      padding: '4px 6px calc(6px + env(safe-area-inset-bottom, 0px))',
       boxShadow: '0 -2px 10px rgba(0, 0, 0, 0.04)',
     }}>
       {currentTabs.map((tab) => {

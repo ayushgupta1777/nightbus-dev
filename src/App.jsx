@@ -46,28 +46,11 @@ import ProfileScreen from './screens/common/ProfileScreen';
 function App() {
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState('phone'); // 'phone' or 'web'
-  const [currentTime, setCurrentTime] = useState('');
   const location = useLocation();
-
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      let hours = now.getHours();
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      setCurrentTime(`${hours % 12 || 12}:${minutes}`);
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 10000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Hide bottom nav on specific fullscreen views like scanner, auth screens
   const hideBottomNavOnRoutes = ['/staff/scanner', '/login', '/test-login'];
   const showBottomNav = !hideBottomNavOnRoutes.includes(location.pathname);
-
-  // Status bar style (light text on purple/gradient header pages, dark text on white pages)
-  const lightHeaderPages = ['/login', '/test-login', '/results'];
-  const isDarkHeaderPage = !lightHeaderPages.includes(location.pathname) && !location.pathname.startsWith('/seat-selection');
 
   return (
     <>
@@ -78,44 +61,8 @@ function App() {
         onToggleViewMode={() => setViewMode(prev => prev === 'phone' ? 'web' : 'phone')}
       />
 
-      {/* ─── Real Mobile Smartphone Chassis / Web Container ────────────── */}
+      {/* ─── Authentic Native Mobile Container ────────────── */}
       <div className={`phone-device-shell ${viewMode === 'web' ? 'web-mode' : ''}`}>
-        {/* Dynamic Island / Notch */}
-        {viewMode === 'phone' && (
-          <div className="mobile-dynamic-island">
-            <div className="island-camera" />
-            <div className="island-sensor" />
-          </div>
-        )}
-
-        {/* Mobile Status Bar (Time, Wifi, Signal, Battery) */}
-        {viewMode === 'phone' && (
-          <div className={`mobile-status-bar ${isDarkHeaderPage ? 'light-text' : 'dark-text'}`} style={{
-            background: isDarkHeaderPage ? 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)' : '#ffffff'
-          }}>
-            <span>{currentTime || '9:41'}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            {/* Cellular */}
-            <svg width="15" height="11" viewBox="0 0 17 11" fill="currentColor">
-              <rect x="0" y="8" width="3" height="3" rx="0.5" />
-              <rect x="4.5" y="5.5" width="3" height="5.5" rx="0.5" />
-              <rect x="9" y="3" width="3" height="8" rx="0.5" />
-              <rect x="13.5" y="0" width="3" height="11" rx="0.5" />
-            </svg>
-            {/* Wifi */}
-            <svg width="14" height="11" viewBox="0 0 16 12" fill="currentColor">
-              <path d="M8 10a1.5 1.5 0 100 3 1.5 1.5 0 000-3zm-3.5-3.5c2-2 5-2 7 0l1.4-1.4c-2.7-2.7-7.1-2.7-9.8 0L4.5 6.5zm-3-3c3.6-3.6 9.4-3.6 13 0l1.4-1.4c-4.4-4.4-11.4-4.4-15.8 0L1.5 3.5z" />
-            </svg>
-            {/* Battery */}
-            <svg width="22" height="11" viewBox="0 0 24 12" fill="currentColor">
-              <rect x="1" y="1" width="19" height="10" rx="3" stroke="currentColor" strokeWidth="1.5" fill="none" />
-              <rect x="3" y="3" width="14" height="6" rx="1.5" />
-              <path d="M21 4.5v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
-          </div>
-        </div>
-        )}
-
         {/* Scrollable Mobile Screen Content */}
         <div className="mobile-screen-scroll">
           <Routes>
