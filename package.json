@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "deploy": "node scripts/deploy.cjs",
     "qa:next": "node scripts/qaResolver.cjs --next",
     "qa:list": "node scripts/qaResolver.cjs --list",
     "qa:resolve-erase": "node scripts/qaResolver.cjs --resolve-and-erase"

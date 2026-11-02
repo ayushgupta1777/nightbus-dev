@@ -30,11 +30,12 @@ When the user enters short instructions like "start fix that issue", "fix next i
    node scripts/qaResolver.cjs --resolve-and-erase <issue_id> --notes "<resolution notes>"
    ```
    This writes to `QA_RESOLUTION_LOG.md` and deletes the ticket from the MongoDB queue.
-6. **Deploy**:
+6. **Deploy (Zero Actions Used)**:
    ```bash
    git add .
    git commit -m "fix(qa): <issue description>"
    git push origin main
+   npm run deploy
    ```
 7. **Confirm** completion and provide the updated staging link:
    `https://ayushgupta1777.github.io/nightbus-dev/`

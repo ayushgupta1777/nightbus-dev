@@ -63,11 +63,12 @@ Whenever the user provides short commands such as:
    - Appends a clean entry to [QA_RESOLUTION_LOG.md](QA_RESOLUTION_LOG.md).
    - Erases the issue from the live database queue so it is not processed twice.
 
-6. **Deploy to GitHub Pages Staging**:
+6. **Commit & Deploy to GitHub Pages (Zero GitHub Actions used)**:
    ```bash
    git add .
    git commit -m "fix(qa): resolve issue <issue_id> - <title>"
    git push origin main
+   npm run deploy
    ```
 
 7. **Report**:
